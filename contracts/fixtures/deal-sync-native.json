@@ -1,0 +1,34 @@
+{
+  "id": "deal-sync",
+  "title": "Deal Sync",
+  "state": "online",
+  "stale": false,
+  "updatedAt": "2026-07-18T00:00:00.000Z",
+  "summary": [
+    { "id": "destinations", "label": "Sheet đích", "value": "2", "tone": "neutral" },
+    { "id": "pendingTransfers", "label": "Chờ chuyển", "value": "1", "tone": "warning" }
+  ],
+  "collections": [
+    {
+      "id": "destinations",
+      "title": "Sheet đích",
+      "symbolName": "tablecells",
+      "total": 1,
+      "nextCursor": null,
+      "items": [
+        {
+          "id": "destination-1",
+          "title": "Shop A",
+          "subtitle": "Sheet chính",
+          "status": "active",
+          "updatedAt": "2026-07-18T00:00:00.000Z",
+          "fields": [
+            { "key": "shopCount", "label": "Shop", "value": "2", "kind": "number" }
+          ]
+        }
+      ]
+    }
+  ],
+  "partial": false,
+  "timestamp": "2026-07-18T00:00:00.000Z"
+}

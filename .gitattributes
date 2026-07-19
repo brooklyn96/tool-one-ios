@@ -1,0 +1,9 @@
+* text=auto
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.swift text eol=lf
+*.xcconfig text eol=lf
+*.strings text eol=lf
+*.json text eol=lf
+*.md text eol=lf

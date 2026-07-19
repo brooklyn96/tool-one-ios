@@ -1,0 +1,9 @@
+{
+  "type": "https://admin-api.beyondk.live/problems/rate-limited",
+  "title": "Too many requests",
+  "status": 429,
+  "code": "rate_limited",
+  "detail": "Retry after the response delay.",
+  "requestId": "44444444-4444-4444-8444-444444444444",
+  "timestamp": "2026-07-17T08:32:35Z"
+}

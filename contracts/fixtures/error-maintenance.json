@@ -1,0 +1,9 @@
+{
+  "type": "https://admin-api.beyondk.live/problems/maintenance",
+  "title": "Maintenance in progress",
+  "status": 503,
+  "code": "maintenance",
+  "detail": "Read access will resume after maintenance.",
+  "requestId": "66666666-6666-4666-8666-666666666666",
+  "timestamp": "2026-07-17T08:32:35Z"
+}

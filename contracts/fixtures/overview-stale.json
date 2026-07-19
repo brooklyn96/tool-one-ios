@@ -1,0 +1,16 @@
+{
+  "services": [
+    {
+      "id": "autoshopee-web",
+      "name": "AutoShopee Web",
+      "kind": "scraper",
+      "state": "degraded",
+      "stale": true,
+      "updatedAt": "2026-07-17T08:30:00Z",
+      "message": "Showing the last successful snapshot."
+    }
+  ],
+  "partial": true,
+  "stale": true,
+  "timestamp": "2026-07-17T08:32:35Z"
+}

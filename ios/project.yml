@@ -1,0 +1,92 @@
+name: AdminDomain
+
+options:
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "16.0"
+
+configs:
+  Debug: debug
+  Staging: release
+  Release: release
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: true
+
+targets:
+  AdminDomain:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: AdminDomain
+    configFiles:
+      Debug: Config/Development.xcconfig
+      Staging: Config/Staging.xcconfig
+      Release: Config/Production.xcconfig
+    info:
+      path: AdminDomain/Info.plist
+      properties:
+        CFBundleDisplayName: Tool One
+        CFBundleDevelopmentRegion: vi
+        CFBundleLocalizations:
+          - vi
+          - en
+        CFBundleShortVersionString: "3.2.0"
+        CFBundleVersion: "9"
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLName: com.beyondk.admindomain.oauth
+            CFBundleURLSchemes:
+              - admindomain
+        APIBaseURL: $(API_BASE_URL)
+        AppEnvironment: $(APP_ENVIRONMENT)
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+          NSAllowsLocalNetworking: false
+        UILaunchScreen: {}
+        UIRequiresFullScreen: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.beyondk.admindomain
+        PRODUCT_NAME: AdminDomain
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: false
+        CODE_SIGN_STYLE: Manual
+
+  AdminDomainTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: AdminDomainTests
+      - path: ../contracts/fixtures
+        buildPhase: resources
+      - path: Fixtures/DealSync
+        buildPhase: resources
+    dependencies:
+      - target: AdminDomain
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.beyondk.admindomain.tests
+
+schemes:
+  AdminDomain:
+    build:
+      targets:
+        AdminDomain: all
+        AdminDomainTests:
+          - test
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - AdminDomainTests
+    archive:
+      config: Release

@@ -1,0 +1,34 @@
+{
+  "id": "external-sync",
+  "title": "External Sync",
+  "state": "online",
+  "stale": false,
+  "updatedAt": "2026-07-18T00:00:00.000Z",
+  "summary": [
+    { "id": "activeLists", "label": "Đang chạy", "value": "1", "tone": "success" },
+    { "id": "failedRuns", "label": "Lỗi", "value": "0", "tone": "neutral" }
+  ],
+  "collections": [
+    {
+      "id": "deal-lists",
+      "title": "Deal List",
+      "symbolName": "list.bullet.rectangle",
+      "total": 1,
+      "nextCursor": null,
+      "items": [
+        {
+          "id": "deal-list-1",
+          "title": "Livestream 18.07",
+          "subtitle": "Source → Target",
+          "status": "active",
+          "updatedAt": "2026-07-18T00:00:00.000Z",
+          "fields": [
+            { "key": "syncCount", "label": "Lần đồng bộ", "value": "4", "kind": "number" }
+          ]
+        }
+      ]
+    }
+  ],
+  "partial": false,
+  "timestamp": "2026-07-18T00:00:00.000Z"
+}

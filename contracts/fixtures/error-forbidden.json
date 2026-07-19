@@ -1,0 +1,9 @@
+{
+  "type": "https://admin-api.beyondk.live/problems/forbidden",
+  "title": "Action forbidden",
+  "status": 403,
+  "code": "forbidden",
+  "detail": "This paired device cannot access the requested resource.",
+  "requestId": "22222222-2222-4222-8222-222222222222",
+  "timestamp": "2026-07-17T08:32:35Z"
+}

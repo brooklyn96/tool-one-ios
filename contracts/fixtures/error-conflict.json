@@ -1,0 +1,9 @@
+{
+  "type": "https://admin-api.beyondk.live/problems/conflict",
+  "title": "State conflict",
+  "status": 409,
+  "code": "conflict",
+  "detail": "The refresh token family was already rotated.",
+  "requestId": "33333333-3333-4333-8333-333333333333",
+  "timestamp": "2026-07-17T08:32:35Z"
+}
