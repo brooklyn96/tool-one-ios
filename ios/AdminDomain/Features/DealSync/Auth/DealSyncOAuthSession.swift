@@ -116,7 +116,7 @@ final class DealSyncOAuthSession: NSObject, ASWebAuthenticationPresentationConte
         return .callbackUnavailable
     }
 
-    private static func map(_ error: Error) -> DealSyncOAuthError {
+    nonisolated private static func map(_ error: Error) -> DealSyncOAuthError {
         if let error = error as? DealSyncOAuthError { return error }
         if let problem = error as? DealSyncProblem { return DealSyncOAuthError(problemCode: problem.code) }
         if let url = error as? URLError {
@@ -164,7 +164,7 @@ final class DealSyncSessionStore: ObservableObject {
         } catch let oauthError as DealSyncOAuthError {
             error = oauthError.errorDescription
         } catch {
-            error = ToolOneFriendlyError.message(for: error)
+            self.error = ToolOneFriendlyError.message(for: error)
         }
     }
 

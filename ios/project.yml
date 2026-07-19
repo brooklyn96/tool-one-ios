@@ -35,8 +35,8 @@ targets:
         CFBundleLocalizations:
           - vi
           - en
-        CFBundleShortVersionString: "3.2.0"
-        CFBundleVersion: "9"
+        CFBundleShortVersionString: "3.2.1"
+        CFBundleVersion: "10"
         CFBundleURLTypes:
           - CFBundleTypeRole: Editor
             CFBundleURLName: com.beyondk.admindomain.oauth
