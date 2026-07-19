@@ -38,6 +38,13 @@ final class ProgramsStore: ObservableObject {
         }
     }
 
+    func applyExternalSync(_ summary: ExternalSyncLiveSummary) {
+        let snapshot = summary.programSnapshot
+        snapshots[.externalSync] = snapshot
+        errors[.externalSync] = nil
+        Task { try? await cache?.save(snapshot, key: cacheKey(.externalSync)) }
+    }
+
     private func fetch(_ id: NativeProgramID) async -> LoadResult {
         do {
             let snapshot: ProgramSnapshot = try await api.send("/v1/programs/\(id.rawValue)")

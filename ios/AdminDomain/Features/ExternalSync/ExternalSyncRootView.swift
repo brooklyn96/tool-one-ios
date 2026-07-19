@@ -27,10 +27,12 @@ private extension Notification.Name {
 struct ExternalSyncRootView: View {
     @StateObject private var auth: ExternalSyncAuthStore
     @StateObject private var connectivity = ConnectivityMonitor()
+    @ObservedObject var liveStore: ExternalSyncLiveStore
     let cache: SnapshotCache?
     let onBackToToolOne: () -> Void
-    init(client: ExternalSyncClient, cache: SnapshotCache?, onBackToToolOne: @escaping () -> Void) {
+    init(client: ExternalSyncClient, cache: SnapshotCache?, liveStore: ExternalSyncLiveStore, onBackToToolOne: @escaping () -> Void) {
         self.cache = cache
+        self.liveStore = liveStore
         self.onBackToToolOne = onBackToToolOne
         _auth = StateObject(wrappedValue: ExternalSyncAuthStore(client: client))
     }
@@ -44,13 +46,20 @@ struct ExternalSyncRootView: View {
             )
             Group {
                 if auth.isRestoring { ProgressView("Đang khôi phục phiên External Sync…") }
-                else if let user = auth.user { ExternalSyncTabView(auth: auth, user: user, cache: cache) }
+                else if let user = auth.user { ExternalSyncTabView(auth: auth, user: user, cache: cache, liveStore: liveStore) }
                 else { ExternalSyncLoginView(auth: auth) }
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .task { if auth.isRestoring { await auth.restore() } }
+        .task(id: auth.user?.id) {
+            if auth.isRestoring { await auth.restore() }
+            if auth.user != nil { await liveStore.refresh() }
+        }
         .environmentObject(connectivity)
+        .onReceive(NotificationCenter.default.publisher(for: .externalSyncRefreshRequested)) { _ in
+            guard auth.user != nil else { return }
+            Task { await liveStore.invalidateAndRefresh() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .externalSyncSessionInvalid)) { _ in
             auth.user = nil
             auth.error = "Phiên External Sync đã hết hạn. Vui lòng đăng nhập lại."
@@ -181,13 +190,14 @@ private struct ExternalSyncTabView: View {
     @ObservedObject var auth: ExternalSyncAuthStore
     let user: ExternalUser
     let cache: SnapshotCache?
+    @ObservedObject var liveStore: ExternalSyncLiveStore
     @AppStorage("external-sync-selected-tab") private var selectedTab = 0
     var body: some View {
         TabView(selection: $selectedTab) {
-            NavigationStack { ExternalHomeView(client: auth.client, user: user, cache: cache, onOpenDealLists: { selectedTab = 1 }) }
+            NavigationStack { ExternalHomeView(liveStore: liveStore, onOpenDealLists: { selectedTab = 1 }) }
                 .tabItem { Label("Trang chủ", systemImage: "house") }
                 .tag(0)
-            NavigationStack { ExternalDealListsView(client: auth.client, cache: cache, cacheNamespace: user.id) }
+            NavigationStack { ExternalDealListsView(client: auth.client, cache: cache, cacheNamespace: user.id, liveStore: liveStore) }
                 .tabItem { Label("Deal Lists", systemImage: "list.bullet.rectangle") }
                 .tag(1)
             NavigationStack { ExternalLogsView(client: auth.client, isAdmin: user.isAdmin, cache: cache, cacheNamespace: user.id) }
@@ -201,42 +211,44 @@ private struct ExternalSyncTabView: View {
 }
 
 struct ExternalHomeView: View {
-    let client: ExternalSyncClient; let user: ExternalUser; let cache: SnapshotCache?
+    @ObservedObject var liveStore: ExternalSyncLiveStore
     let onOpenDealLists: () -> Void
-    @State private var dashboard: DashboardDTO?; @State private var error: String?; @State private var loading = true
-    @State private var isStale = false
     var body: some View {
-        AsyncStateView(state: presentationState, retry: { Task { await load() } }) {
-            if let dashboard {
+        AsyncStateView(state: presentationState, retry: { Task { await liveStore.invalidateAndRefresh() } }) {
+            if let summary = liveStore.summary {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: ToolOneLayout.spacingM) {
-                        if isStale {
+                        if summary.stale {
                             Label("Đang hiển thị dữ liệu đã lưu", systemImage: "clock.badge.exclamationmark")
                                 .font(.footnote)
                                 .foregroundStyle(.orange)
                         }
-                        if dashboard.isReadyEmpty {
+                        if liveStore.isRefreshing || liveStore.isEnriching {
+                            HStack(spacing: ToolOneLayout.spacingXS) {
+                                ProgressView()
+                                Text(liveStore.isRefreshing ? "Đang cập nhật Deal Lists…" : "Đang bổ sung số liệu hoạt động…")
+                            }
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        }
+                        if summary.dealListTotal == 0 {
                             readyEmptyState
                         } else {
-                            dashboardContent(dashboard)
+                            summaryContent(summary)
                         }
                     }
                     .padding(ToolOneLayout.spacingS)
                 }
                 .background(ToolOneSurface.canvas)
-                .refreshable { await load() }
+                .refreshable { await liveStore.invalidateAndRefresh() }
             }
         }
         .navigationTitle("Tổng quan")
-        .task { await load() }
-        .onReceive(NotificationCenter.default.publisher(for: .externalSyncRefreshRequested)) { _ in
-            Task { await load() }
-        }
     }
 
     private var presentationState: AsyncPresentationState {
-        if loading && dashboard == nil { return .loading(message: "Đang tải External Sync…") }
-        if let error, dashboard == nil {
+        if liveStore.isInitialLoading && liveStore.summary == nil { return .loading(message: "Đang tải Deal Lists…") }
+        if let error = liveStore.errorMessage, liveStore.summary == nil {
             return .failure(title: "Không tải được dữ liệu", message: error)
         }
         return .content
@@ -260,21 +272,21 @@ struct ExternalHomeView: View {
         .toolOneCard()
     }
 
-    private func dashboardContent(_ dashboard: DashboardDTO) -> some View {
+    private func summaryContent(_ summary: ExternalSyncLiveSummary) -> some View {
         VStack(alignment: .leading, spacing: ToolOneLayout.spacingM) {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: ToolOneLayout.spacingS) {
-                MetricTile(label: "Deal Lists", value: "\(dashboard.dealLists.total)", systemImage: "list.bullet")
-                MetricTile(label: "Đang chạy", value: "\(dashboard.dealLists.active)", systemImage: "play.circle")
-                MetricTile(label: "Thành công", value: "\(dashboard.processes.successful)", systemImage: "checkmark.circle")
-                MetricTile(label: "Thất bại", value: "\(dashboard.processes.failed)", systemImage: "xmark.circle")
+                MetricTile(label: "Deal Lists", value: "\(summary.dealListTotal)", systemImage: "list.bullet")
+                MetricTile(label: "Đang chạy", value: "\(summary.activeDealLists)", systemImage: "play.circle")
+                MetricTile(label: "Thành công", value: "\(summary.successfulProcesses)", systemImage: "checkmark.circle")
+                MetricTile(label: "Thất bại", value: "\(summary.failedProcesses)", systemImage: "xmark.circle")
             }
 
             HStack(spacing: ToolOneLayout.spacingS) {
-                Image(systemName: dashboard.scheduler.isRunning ? "clock.badge.checkmark" : "clock.badge.xmark")
-                    .foregroundStyle(dashboard.scheduler.isRunning ? .green : .orange)
+                Image(systemName: summary.activeDealLists > 0 ? "clock.badge.checkmark" : "clock.badge.xmark")
+                    .foregroundStyle(summary.activeDealLists > 0 ? .green : .secondary)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(dashboard.scheduler.isRunning ? "Scheduler đang hoạt động" : "Scheduler đang dừng").font(.headline)
-                    Text("\(dashboard.scheduler.activeDealLists) Deal List đang được theo dõi")
+                    Text(summary.activeDealLists > 0 ? "Đang đồng bộ" : "Chưa có Deal List đang chạy").font(.headline)
+                    Text("\(summary.activeDealLists) Deal List đang được theo dõi")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
@@ -282,10 +294,10 @@ struct ExternalHomeView: View {
 
             VStack(alignment: .leading, spacing: ToolOneLayout.spacingS) {
                 Text("Hoạt động gần đây").font(.title2.bold())
-                if dashboard.recentActivity.isEmpty {
+                if summary.recentActivity.isEmpty {
                     Text("Chưa có hoạt động").foregroundStyle(.secondary).toolOneCard()
                 }
-                ForEach(dashboard.recentActivity.prefix(5)) { log in
+                ForEach(summary.recentActivity.prefix(5)) { log in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(log.message).font(.subheadline)
                         Text(log.createdAt, style: .relative).font(.caption).foregroundStyle(.secondary)
@@ -294,16 +306,6 @@ struct ExternalHomeView: View {
                     .toolOneCard()
                 }
             }
-        }
-    }
-    @MainActor private func load() async {
-        loading = dashboard == nil; defer { loading = false }
-        do {
-            dashboard = try await client.send("/api/mobile/v2/dashboard"); error = nil; isStale = false
-            if let dashboard { try? await cache?.save(dashboard, key: "external-\(user.id)-dashboard") }
-        } catch {
-            if dashboard == nil, let cached = try? await cache?.load(DashboardDTO.self, key: "external-\(user.id)-dashboard") { dashboard = cached; isStale = true; self.error = nil }
-            else { self.error = ToolOneFriendlyError.message(for: error) }
         }
     }
 }

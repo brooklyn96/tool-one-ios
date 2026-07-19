@@ -4,6 +4,7 @@ struct EmptyMutation: Encodable {}
 
 struct ExternalDealListsView: View {
     let client: ExternalSyncClient; let cache: SnapshotCache?; let cacheNamespace: String
+    @ObservedObject var liveStore: ExternalSyncLiveStore
     @EnvironmentObject private var connectivity: ConnectivityMonitor
     @State private var items: [DealListDTO] = []; @State private var cursor: String?
     @State private var search = ""; @State private var activeFilter: Bool?; @State private var loading = true
@@ -20,7 +21,7 @@ struct ExternalDealListsView: View {
             if loading && items.isEmpty { HStack { Spacer(); ProgressView(); Spacer() } }
             if let error { Section { Text(error).foregroundStyle(.red); Button("Thử lại") { Task { await load(reset: true) } } } }
             ForEach(items) { item in
-                NavigationLink { ExternalDealDetailView(client: client, id: item.id) } label: {
+                NavigationLink { ExternalDealDetailView(client: client, id: item.id, liveStore: liveStore) } label: {
                     VStack(alignment: .leading, spacing: 5) {
                         HStack { Text(item.name).font(.headline); Spacer(); status(item.isActive) }
                         Text("\(item.sourceSheetName) → \(item.targetSheetName)").font(.subheadline).foregroundStyle(.secondary)
@@ -43,7 +44,7 @@ struct ExternalDealListsView: View {
         if reset { loading = true; cursor = nil }; defer { loading = false }
         var components = URLComponents(); components.path = "/api/mobile/v2/deal-lists"
         components.queryItems = [
-            URLQueryItem(name: "limit", value: "30"),
+            URLQueryItem(name: "limit", value: "100"),
             search.isEmpty ? nil : URLQueryItem(name: "search", value: search),
             activeFilter.map { URLQueryItem(name: "active", value: String($0)) },
             reset ? nil : cursor.map { URLQueryItem(name: "cursor", value: $0) },
@@ -54,6 +55,7 @@ struct ExternalDealListsView: View {
             cursor = page.nextCursor; error = nil
             isStale = false
             if reset { try? await cache?.save(items, key: "external-\(cacheNamespace)-deal-lists") }
+            if reset, page.nextCursor == nil { liveStore.acceptDealLists(items) }
         } catch {
             if reset, let cached = try? await cache?.load([DealListDTO].self, key: "external-\(cacheNamespace)-deal-lists") {
                 items = cached; cursor = nil; isStale = true; self.error = nil
@@ -64,6 +66,7 @@ struct ExternalDealListsView: View {
 
 struct ExternalDealDetailView: View {
     let client: ExternalSyncClient; let id: String
+    @ObservedObject var liveStore: ExternalSyncLiveStore
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var connectivity: ConnectivityMonitor
     @State private var detail: DealListDetailDTO?; @State private var error: String?; @State private var showEdit = false
@@ -106,7 +109,7 @@ struct ExternalDealDetailView: View {
         }.navigationTitle(detail?.name ?? "Deal List").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .primaryAction) { Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise") } } }
         .task { await load(); await restoreOperation() }
-        .sheet(isPresented: $showEdit) { if let detail { NavigationStack { DealListEditorView(client: client, detail: detail) { Task { await load() } } } } }
+        .sheet(isPresented: $showEdit) { if let detail { NavigationStack { DealListEditorView(client: client, detail: detail) { Task { await load(); await liveStore.invalidateAndRefresh() } } } } }
         .confirmationDialog("Xác nhận thao tác", isPresented: Binding(get: { confirmAction != nil }, set: { if !$0 { confirmAction = nil } })) {
             if let action = confirmAction { Button(action.rawValue == "delete" ? "Xóa" : "Tiếp tục", role: action == .delete ? .destructive : nil) { Task { await perform(action) } } }
             Button("Hủy", role: .cancel) {}
@@ -126,6 +129,7 @@ struct ExternalDealDetailView: View {
             case .start, .stop:
                 let _: DealListDTO = try await client.send("/api/mobile/v2/deal-lists/\(id)/\(action.rawValue)", method: "POST", body: EmptyMutation(), idempotencyKey: UUID().uuidString)
                 await load()
+                await liveStore.invalidateAndRefresh()
             case .sync:
                 struct Body: Encodable { let dealListIds: [String] }
                 operation = try await client.send("/api/mobile/v2/operations/sync", method: "POST", body: Body(dealListIds: [id]), idempotencyKey: UUID().uuidString)
@@ -133,6 +137,7 @@ struct ExternalDealDetailView: View {
                 await poll()
             case .delete:
                 let _: DeleteResult = try await client.send("/api/mobile/v2/deal-lists/\(id)", method: "DELETE", body: EmptyMutation(), idempotencyKey: UUID().uuidString)
+                await liveStore.invalidateAndRefresh()
                 dismiss()
             }
         } catch { self.error = error.localizedDescription }
@@ -169,7 +174,7 @@ private struct ExternalOperationView: View {
     }
 }
 
-struct DealListEditorView: View {
+private struct LegacyDealListEditorView: View {
     let client: ExternalSyncClient; let detail: DealListDetailDTO?; let saved: () -> Void
     @EnvironmentObject private var connectivity: ConnectivityMonitor
     @Environment(\.dismiss) private var dismiss

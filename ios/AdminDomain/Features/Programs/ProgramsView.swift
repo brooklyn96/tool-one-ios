@@ -18,7 +18,14 @@ struct ProgramsView: View {
                             } icon: { Image(systemName: "arrow.triangle.2.circlepath.circle.fill").foregroundStyle(.tint) }
                         }.frame(minHeight: 52)
                     } else if id == .externalSync {
-                        NavigationLink { ExternalSyncRootView(client: externalSyncClient, cache: cache, onBackToToolOne: {}) } label: {
+                        NavigationLink {
+                            ExternalSyncRootView(
+                                client: externalSyncClient,
+                                cache: cache,
+                                liveStore: ExternalSyncLiveStore(client: externalSyncClient, cache: cache),
+                                onBackToToolOne: {}
+                            )
+                        } label: {
                             Label {
                                 VStack(alignment: .leading) { Text("External Sync").font(.headline); Text("Ứng dụng native đầy đủ").font(.caption).foregroundStyle(.secondary) }
                             } icon: { Image(systemName: "arrow.up.arrow.down.circle.fill").foregroundStyle(.tint) }

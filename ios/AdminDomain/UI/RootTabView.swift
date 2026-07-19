@@ -7,6 +7,7 @@ struct RootTabView: View {
     let cache: SnapshotCache?
     let keychain: KeychainStore
     @ObservedObject var programsStore: ProgramsStore
+    @ObservedObject var externalSyncLiveStore: ExternalSyncLiveStore
     let onUnpaired: () async -> Void
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
@@ -31,6 +32,11 @@ struct RootTabView: View {
             .tag(AppTab.settings)
         }
         .animation(accessibilityReduceMotion ? nil : .easeInOut(duration: 0.2), value: router.selectedTab)
+        .onReceive(externalSyncLiveStore.$summary) { summary in
+            if let summary {
+                programsStore.applyExternalSync(summary)
+            }
+        }
     }
 }
 
@@ -103,5 +109,15 @@ private struct SettingsView: View {
 #Preview {
     let environment = try! AppEnvironment(deployment: .development, baseURL: URL(string: "https://invalid.example")!)
     let api = APIClient(baseURL: environment.baseURL)
-    RootTabView(router: AppRouter(), environment: environment, api: api, cache: nil, keychain: KeychainStore(service: "preview"), programsStore: ProgramsStore(api: api, cache: nil), onUnpaired: {})
+    let keychain = KeychainStore(service: "preview")
+    RootTabView(
+        router: AppRouter(),
+        environment: environment,
+        api: api,
+        cache: nil,
+        keychain: keychain,
+        programsStore: ProgramsStore(api: api, cache: nil),
+        externalSyncLiveStore: ExternalSyncLiveStore(client: ExternalSyncClient(keychain: keychain), cache: nil),
+        onUnpaired: {}
+    )
 }

@@ -9,6 +9,7 @@ struct ToolOneRootCoordinator: View {
     let onUnpaired: () async -> Void
 
     @StateObject private var programsStore: ProgramsStore
+    @StateObject private var externalSyncLiveStore: ExternalSyncLiveStore
     private let externalSyncClient: ExternalSyncClient
     private let dealSyncClient: DealSyncClient
 
@@ -26,9 +27,11 @@ struct ToolOneRootCoordinator: View {
         self.cache = cache
         self.keychain = keychain
         self.onUnpaired = onUnpaired
-        self.externalSyncClient = ExternalSyncClient(keychain: keychain)
+        let externalSyncClient = ExternalSyncClient(keychain: keychain)
+        self.externalSyncClient = externalSyncClient
         self.dealSyncClient = DealSyncClient(keychain: keychain)
         _programsStore = StateObject(wrappedValue: ProgramsStore(api: api, cache: cache))
+        _externalSyncLiveStore = StateObject(wrappedValue: ExternalSyncLiveStore(client: externalSyncClient, cache: cache))
     }
 
     @ViewBuilder
@@ -42,12 +45,18 @@ struct ToolOneRootCoordinator: View {
                 cache: cache,
                 keychain: keychain,
                 programsStore: programsStore,
+                externalSyncLiveStore: externalSyncLiveStore,
                 onUnpaired: onUnpaired
             )
         case .dealSync:
             DealSyncRootView(client: dealSyncClient, cache: cache, onBackToToolOne: router.closeProgram)
         case .externalSync:
-            ExternalSyncRootView(client: externalSyncClient, cache: cache, onBackToToolOne: router.closeProgram)
+            ExternalSyncRootView(
+                client: externalSyncClient,
+                cache: cache,
+                liveStore: externalSyncLiveStore,
+                onBackToToolOne: router.closeProgram
+            )
         }
     }
 }
