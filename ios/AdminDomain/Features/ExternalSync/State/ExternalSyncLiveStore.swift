@@ -1,6 +1,6 @@
 import Foundation
 
-struct ExternalSyncLiveSummary: Codable, Equatable {
+struct ExternalSyncLiveSummary: Codable {
     var dealListTotal: Int
     var activeDealLists: Int
     var processTotal: Int
