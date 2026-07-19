@@ -55,7 +55,7 @@ struct ExternalDealListsView: View {
             cursor = page.nextCursor; error = nil
             isStale = false
             if reset { try? await cache?.save(items, key: "external-\(cacheNamespace)-deal-lists") }
-            if reset, page.nextCursor == nil { liveStore.acceptDealLists(items) }
+            if reset, search.isEmpty, activeFilter == nil, page.nextCursor == nil { liveStore.acceptDealLists(items) }
         } catch {
             if reset, let cached = try? await cache?.load([DealListDTO].self, key: "external-\(cacheNamespace)-deal-lists") {
                 items = cached; cursor = nil; isStale = true; self.error = nil

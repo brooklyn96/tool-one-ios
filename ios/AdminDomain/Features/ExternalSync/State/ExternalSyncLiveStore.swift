@@ -10,8 +10,20 @@ struct ExternalSyncClientLiveLoader: ExternalSyncLiveLoading {
     let client: ExternalSyncClient
 
     func loadDealLists() async throws -> [DealListDTO] {
-        let page: ExternalPage<DealListDTO> = try await client.send("/api/mobile/v2/deal-lists?limit=100")
-        return page.items
+        var items: [DealListDTO] = []
+        var cursor: String?
+        repeat {
+            var components = URLComponents()
+            components.path = "/api/mobile/v2/deal-lists"
+            components.queryItems = [
+                URLQueryItem(name: "limit", value: "100"),
+                cursor.map { URLQueryItem(name: "cursor", value: $0) }
+            ].compactMap { $0 }
+            let page: ExternalPage<DealListDTO> = try await client.send(components.string ?? "/api/mobile/v2/deal-lists?limit=100")
+            items.append(contentsOf: page.items.filter { item in !items.contains(where: { $0.id == item.id }) })
+            cursor = page.nextCursor
+        } while cursor != nil
+        return items
     }
 
     func loadDashboard() async throws -> DashboardDTO {
